@@ -55,10 +55,10 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
     let { id } = req.params;
     // Decodificar el ID en caso de que tenga caracteres especiales codificados
     id = decodeURIComponent(id);
-    
+
     // Intentar buscar por orderId primero (más común y no requiere validación de ObjectId)
     let order = await Order.findOne({ orderId: id });
-    
+
     // Si no se encuentra, intentar por _id solo si es un ObjectId válido
     if (!order && mongoose.Types.ObjectId.isValid(id)) {
       try {
@@ -67,7 +67,7 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
         // Si falla, continuar sin error
       }
     }
-    
+
     if (!order) {
       return res.status(404).json({ message: 'Pedido no encontrado' });
     }
@@ -79,23 +79,53 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
 });
 
 // Actualizar estado - admin
+// Actualizar estado - admin
 router.put('/:id/status', authenticateAdmin, async (req, res) => {
   try {
     const { status } = req.body;
     if (!status) {
       return res.status(400).json({ message: 'Estado es requerido' });
     }
+
+    // Decodificar el ID
+    const decodedId = decodeURIComponent(req.params.id);
+
+    const query = mongoose.Types.ObjectId.isValid(decodedId)
+      ? { _id: decodedId }
+      : { orderId: decodedId };
+
     const order = await Order.findOneAndUpdate(
-      { $or: [{ _id: req.params.id }, { orderId: req.params.id }] },
+      query,
       { status },
       { new: true }
     );
+
     if (!order) {
       return res.status(404).json({ message: 'Pedido no encontrado' });
     }
     res.json(order);
   } catch (error) {
+    console.error('Error updating status:', error);
     res.status(400).json({ message: error.message });
+  }
+});
+
+// Eliminar pedido - admin
+router.delete('/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const decodedId = decodeURIComponent(req.params.id);
+    const query = mongoose.Types.ObjectId.isValid(decodedId)
+      ? { _id: decodedId }
+      : { orderId: decodedId };
+
+    const order = await Order.findOneAndDelete(query);
+
+    if (!order) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+    res.json({ message: 'Pedido eliminado correctamente' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
